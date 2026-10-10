@@ -1,226 +1,180 @@
-import React from "react";
 
-const skills = [
-  { name: "Aptitude", score: 68 },
-  { name: "Coding & DSA", score: 72 },
-  { name: "Core CS", score: 76 },
-  { name: "Technical Skills", score: 71 },
-  { name: "Professional Skills", score: 78 },
-  { name: "AI Interview", score: 80 },
-];
+import { useData } from '@/context/DataContext';
 
-const milestones = [
-  { label: "Initial Assessment", score: 52 },
-  { label: "After Practice", score: 61 },
-  { label: "After Recovery Plan", score: 68 },
-  { label: "Re-Assessment", score: 74 },
-];
-
-const recentActivity = [
-  { title: "Aptitude Assessment", detail: "Scored 68% • 2 days ago" },
-  { title: "Solved Two Sum", detail: "Easy • Yesterday" },
-  { title: "AI Interview", detail: "Scored 80% • 3 days ago" },
-];
+type SkillAssessment = {
+  name: string;
+  score: number;
+  assessed: boolean;
+  matches: string[];
+};
 
 export function ProgressPage() {
-  const overall = 74;
+  const {
+    scores,
+    assessments,
+    streak,
+    problemsSolved,
+  } = useData();
+
+  const hasMatchingAssessment = (matches: string[]) =>
+    assessments.some((assessment) => {
+      const type = String(assessment.type ?? '').toLowerCase();
+      return matches.some((match) => type.includes(match));
+    });
+
+  const skills: SkillAssessment[] = [
+    {
+      name: 'Aptitude',
+      score: scores.aptitude,
+      assessed: hasMatchingAssessment(['aptitude']),
+      matches: ['aptitude'],
+    },
+    {
+      name: 'Coding & DSA',
+      score: scores.coding,
+      assessed: hasMatchingAssessment(['coding', 'dsa']),
+      matches: ['coding', 'dsa'],
+    },
+    {
+      name: 'Technical Skills',
+      score: scores.technical,
+      assessed: hasMatchingAssessment(['technical']),
+      matches: ['technical'],
+    },
+    {
+      name: 'AI Interview',
+      score: scores.aiInterview,
+      assessed: hasMatchingAssessment(['ai interview', 'interview']),
+      matches: ['ai interview', 'interview'],
+    },
+  ];
+
+  const completed = skills.filter((skill) => skill.assessed);
+
+  const readiness =
+    completed.length > 0
+      ? Math.round(
+          completed.reduce((total, skill) => total + skill.score, 0) /
+            completed.length
+        )
+      : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-
-        {/* Header */}
-        <div>
+    <main className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header>
           <p className="text-sm font-semibold uppercase tracking-wider text-indigo-600">
-            Progress
+            PERSONAHIRE
           </p>
-
-          <h1 className="mt-1 text-3xl font-bold text-slate-900">
-            Track your placement progress.
+          <h1 className="mt-2 text-3xl font-bold text-slate-900">
+            Your Placement Progress
           </h1>
-
-          <p className="mt-2 text-slate-500">
-            See how your skills and placement readiness improve over time.
+          <p className="mt-2 text-slate-600">
+            Track your skills using your completed assessments.
           </p>
-        </div>
+        </header>
 
-        {/* Overall Readiness */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <p className="text-sm font-medium text-slate-500">
+            Overall Placement Readiness
+          </p>
 
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Overall Placement Readiness
-              </p>
-
-              <div className="mt-2 flex items-end gap-2">
-                <span className="text-5xl font-bold text-slate-900">
-                  {overall}%
-                </span>
-
-                <span className="mb-2 text-sm font-medium text-green-600">
-                  Good progress
-                </span>
-              </div>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Keep practicing your weaker areas to improve your readiness.
-              </p>
-            </div>
-
-            <div className="h-32 w-32 rounded-full border-[14px] border-indigo-100 flex items-center justify-center">
-              <span className="text-2xl font-bold text-indigo-600">
-                {overall}%
-              </span>
-            </div>
-
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <span className="text-5xl font-bold text-slate-900">
+              {readiness === null ? '—' : `${readiness}%`}
+            </span>
+            <span className="mb-2 text-sm text-slate-500">
+              {completed.length} of {skills.length} assessments completed
+            </span>
           </div>
+
+          <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-indigo-600 transition-all"
+              style={{ width: `${readiness ?? 0}%` }}
+            />
+          </div>
+
+          <p className="mt-4 text-sm text-slate-600">
+            {readiness === null
+              ? 'Complete your first assessment to start tracking your progress.'
+              : 'Keep practicing to improve your placement readiness.'}
+          </p>
         </section>
 
-        {/* Skill Progress */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-900">
-              Skill Progress
-            </h2>
-
-            <p className="text-sm text-slate-500">
-              Your current performance across placement preparation areas.
-            </p>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            {skills.map((skill) => (
-              <div key={skill.name}>
-                <div className="mb-2 flex justify-between">
-                  <span className="font-medium text-slate-700">
-                    {skill.name}
-                  </span>
-
-                  <span className="font-semibold text-slate-900">
-                    {skill.score}%
-                  </span>
-                </div>
-
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${skill.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Improvement Journey */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">
-            Improvement Journey
+            Skill Progress
           </h2>
-
           <p className="mt-1 text-sm text-slate-500">
-            Your readiness from the initial assessment to the latest
-            re-assessment.
+            Scores appear when matching assessment records exist.
           </p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
-            {milestones.map((item, index) => (
-              <div key={item.label} className="relative">
-                <div className="rounded-xl bg-slate-50 p-5">
-                  <p className="text-sm text-slate-500">
-                    {item.label}
-                  </p>
+          <div className="mt-6 space-y-5">
+            {skills.map((skill) => {
+              const score = skill.assessed
+                ? Math.min(100, Math.max(0, skill.score))
+                : null;
 
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {item.score}%
-                  </p>
+              return (
+                <div key={skill.name}>
+                  <div className="mb-2 flex justify-between gap-3">
+                    <span className="font-medium text-slate-700">
+                      {skill.name}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-700">
+                      {score === null ? 'Not assessed' : `${score}%`}
+                    </span>
+                  </div>
 
-                  <div className="mt-4 h-2 rounded-full bg-slate-200">
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-indigo-500"
-                      style={{ width: `${item.score}%` }}
+                      className="h-full rounded-full bg-indigo-500 transition-all"
+                      style={{ width: `${score ?? 0}%` }}
                     />
                   </div>
                 </div>
-
-                {index < milestones.length - 1 && (
-                  <div className="hidden md:block absolute right-[-16px] top-1/2 h-px w-8 bg-slate-200" />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
-        {/* Statistics */}
-        <section className="grid gap-4 md:grid-cols-3">
-
+        <section className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-500">🔥 Current Streak</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">7 days</p>
+            <p className="text-sm text-slate-500">Current Streak</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {streak} {streak === 1 ? 'day' : 'days'}
+            </p>
             <p className="mt-1 text-sm text-slate-500">
-              Keep practicing every day.
+              Practice regularly to build your streak.
             </p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-500">💻 Problems Solved</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">27</p>
-            <p className="mt-1 text-sm text-slate-500">
-              12 completed this month.
+            <p className="text-sm text-slate-500">Problems Solved</p>
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {problemsSolved}
             </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-slate-500">⏱ Practice Time</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">42h</p>
             <p className="mt-1 text-sm text-slate-500">
-              Across 68 practice sessions.
+              Problems recorded as solved in PersonaHire.
             </p>
-          </div>
-
-        </section>
-
-        {/* Recent Activity */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">
-                Recent Activity
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Your latest placement preparation activities.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 divide-y divide-slate-100">
-            {recentActivity.map((activity) => (
-              <div
-                key={activity.title}
-                className="flex items-center justify-between py-4"
-              >
-                <div>
-                  <p className="font-semibold text-slate-800">
-                    {activity.title}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {activity.detail}
-                  </p>
-                </div>
-
-                <span className="text-sm font-medium text-indigo-600">
-                  View
-                </span>
-              </div>
-            ))}
           </div>
         </section>
 
+        <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-6">
+          <h2 className="text-lg font-bold text-slate-900">
+            {readiness === null
+              ? 'Your journey starts here'
+              : 'Keep improving'}
+          </h2>
+          <p className="mt-2 text-sm text-slate-600">
+            {readiness === null
+              ? 'Start an assessment or solve a coding problem to begin.'
+              : 'Review your results and practice your weaker areas.'}
+          </p>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
