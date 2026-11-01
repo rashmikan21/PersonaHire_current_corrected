@@ -38,9 +38,44 @@ except ImportError:
     )
 
 app = Flask(__name__)
-CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "personahire.db")
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+    "http://localhost:3000",
+]
+frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+if frontend_url:
+    allowed_origins.extend([origin.strip() for origin in frontend_url.split(",") if origin.strip()])
+
+if os.environ.get("VERCEL"):
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+else:
+    CORS(app, resources={r"/*": {"origins": allowed_origins}}, supports_credentials=True)
+
+
+def resolve_db_path():
+    custom_path = os.environ.get("DB_PATH", "").strip()
+    if custom_path:
+        return custom_path
+    if os.environ.get("VERCEL"):
+        import tempfile
+        tmp_db = os.path.join(tempfile.gettempdir(), "personahire.db")
+        bundled_db = os.path.join(os.path.dirname(__file__), "personahire.db")
+        if not os.path.exists(tmp_db) and os.path.exists(bundled_db):
+            try:
+                import shutil
+                shutil.copyfile(bundled_db, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+    return os.path.join(os.path.dirname(__file__), "personahire.db")
+
+
+DB_PATH = resolve_db_path()
 
 JUDGE0_URL = "https://extra-ce.judge0.com/submissions"
 
@@ -111,8 +146,14 @@ init_db()
 
 
 @app.route("/", methods=["GET"])
+@app.route("/api", methods=["GET"])
+@app.route("/api/", methods=["GET"])
 def home():
-    return "PersonaHire backend is running!"
+    return jsonify({
+        "status": "ok",
+        "message": "PersonaHire backend is running!",
+        "ai": get_ai_status()
+    })
 
 
 @app.route("/api/health", methods=["GET"])

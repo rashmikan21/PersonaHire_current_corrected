@@ -7,7 +7,16 @@ from typing import Any
 import requests
 
 
-AI_PROVIDER = os.getenv("AI_PROVIDER", "ollama").strip().lower()
+def resolve_default_ai_provider():
+    explicit = os.getenv("AI_PROVIDER", "").strip().lower()
+    if explicit:
+        return explicit
+    if os.getenv("VERCEL") or (os.getenv("GEMINI_API_KEY") and not os.getenv("OLLAMA_BASE_URL")):
+        return "gemini"
+    return "ollama"
+
+
+AI_PROVIDER = resolve_default_ai_provider()
 OLLAMA_BASE_URL = os.getenv(
     "OLLAMA_BASE_URL", "http://127.0.0.1:11434"
 ).strip().rstrip("/")

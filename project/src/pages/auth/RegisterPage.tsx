@@ -11,8 +11,9 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getApiUrl } from '@/services/api';
 
-const API_URL = 'http://127.0.0.1:5000';
+
 
 export function RegisterPage() {
   const [form, setForm] = useState({
@@ -60,7 +61,7 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

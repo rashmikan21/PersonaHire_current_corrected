@@ -24,6 +24,7 @@ import type {
   InterviewTurnRecord,
 } from '@/types';
 import { cn } from '@/utils/cn';
+import { getApiUrl } from '@/services/api';
 
 type InterviewQuestionPayload = {
   sessionId: string;
@@ -84,7 +85,7 @@ const difficulties: InterviewDifficulty[] = ['Easy', 'Medium', 'Hard'];
 async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(path, {
+    response = await fetch(getApiUrl(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
