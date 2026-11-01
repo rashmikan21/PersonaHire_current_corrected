@@ -70,6 +70,57 @@ export interface InterviewQuestion {
   idealAnswer: string;
 }
 
+export type InterviewCategory =
+  | 'Technical'
+  | 'HR'
+  | 'Behavioral'
+  | 'Programming Concepts';
+
+export type InterviewDifficulty = 'Easy' | 'Medium' | 'Hard';
+
+export interface InterviewEvaluation {
+  overallScore: number;
+  relevanceScore: number;
+  technicalAccuracyScore: number;
+  completenessScore: number;
+  communicationScore: number;
+  strengths: string[];
+  missingConcepts: string[];
+  mistakes: string[];
+  improvementSuggestions: string[];
+  sampleImprovedAnswer: string;
+}
+
+export interface InterviewTurnRecord {
+  questionId: string;
+  question: string;
+  answer: string;
+  difficulty: InterviewDifficulty;
+  evaluation: InterviewEvaluation;
+}
+
+export interface InterviewReport {
+  totalQuestionsAttempted: number;
+  averageScore: number;
+  technicalKnowledgePerformance: number;
+  communicationPerformance: number;
+  strongAreas: string[];
+  weakAreas: string[];
+  frequentlyMissingConcepts: string[];
+  personalizedRecommendations: string[];
+  readinessAssessment: string;
+}
+
+export interface InterviewSessionRecord {
+  id: string;
+  role: string;
+  category: InterviewCategory;
+  difficulty: InterviewDifficulty;
+  date: string;
+  turns: InterviewTurnRecord[];
+  report: InterviewReport;
+}
+
 export interface AnswerAnalysis {
   technicalAccuracy: number;
   answerQuality: number;

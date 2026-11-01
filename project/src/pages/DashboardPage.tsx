@@ -11,7 +11,7 @@ import { Badge, Button } from '@/components/ui/Badge';
 import { DonutChart, BarChart } from '@/components/ui/Charts';
 
 export function DashboardPage() {
-  const { scores, initialScores, profile, streak, problemsSolved, practiceMinutes } = useData();
+  const { scores, initialScores, profile, streak, problemsSolved, practiceMinutes, interviewSessions } = useData();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -117,6 +117,33 @@ export function DashboardPage() {
           />
         ))}
       </div>
+
+      {interviewSessions[0] && (
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Bot size={18} className="text-brand-600" />
+                <h3 className="font-bold text-slate-800">Latest Mock Interview</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                {interviewSessions[0].role} · {interviewSessions[0].category} · {interviewSessions[0].date}
+              </p>
+              <p className="mt-3 text-sm text-slate-700">
+                {interviewSessions[0].report.readinessAssessment}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-extrabold text-brand-600">
+                {interviewSessions[0].report.averageScore}/10
+              </p>
+              <p className="text-xs text-slate-500">
+                {interviewSessions[0].report.totalQuestionsAttempted} questions
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Before vs After */}
       <Card className="bg-gradient-to-r from-slate-50 to-brand-50/30">

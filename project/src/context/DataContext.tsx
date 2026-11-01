@@ -14,6 +14,7 @@ import type {
   ScoreBreakdown,
   AssessmentRecord,
   RecoveryDay,
+  InterviewSessionRecord,
 } from '@/types';
 
 import { defaultRecoveryPlan } from '@/data/mockData';
@@ -30,6 +31,8 @@ interface DataContextType {
   initialScores: ScoreBreakdown;
   assessments: AssessmentRecord[];
   addAssessment: (a: AssessmentRecord) => void;
+  interviewSessions: InterviewSessionRecord[];
+  completeInterviewSession: (session: InterviewSessionRecord) => void;
   recoveryPlan: RecoveryDay[];
   toggleRecoveryDay: (day: number) => void;
   recoveryPlanGenerated: boolean;
@@ -53,6 +56,7 @@ interface SavedStudentData {
   profile: StudentProfile | null;
   scores: ScoreBreakdown;
   assessments: AssessmentRecord[];
+  interviewSessions: InterviewSessionRecord[];
   recoveryPlan: RecoveryDay[];
   recoveryPlanGenerated: boolean;
   streak: number;
@@ -68,6 +72,7 @@ function emptyStudentData(): SavedStudentData {
     profile: null,
     scores: { ...emptyScores },
     assessments: [],
+    interviewSessions: [],
     recoveryPlan: defaultRecoveryPlan.map(day => ({
       ...day,
       completed: false,
@@ -99,6 +104,9 @@ function loadStudentData(email: string): SavedStudentData {
       scores: { ...emptyScores, ...(saved.scores ?? {}) },
       assessments: Array.isArray(saved.assessments)
         ? saved.assessments
+        : [],
+      interviewSessions: Array.isArray(saved.interviewSessions)
+        ? saved.interviewSessions
         : [],
       recoveryPlan: Array.isArray(saved.recoveryPlan)
         ? saved.recoveryPlan
@@ -169,6 +177,7 @@ export function DataProvider({
   const profile = studentData.profile;
   const scores = studentData.scores;
   const assessments = studentData.assessments;
+  const interviewSessions = studentData.interviewSessions;
   const recoveryPlan = studentData.recoveryPlan;
   const recoveryPlanGenerated = studentData.recoveryPlanGenerated;
   const streak = studentData.streak;
@@ -198,6 +207,39 @@ export function DataProvider({
     save({
       ...studentData,
       assessments: [assessment, ...assessments],
+    });
+  };
+
+  const completeInterviewSession = (session: InterviewSessionRecord) => {
+    const today = new Date().toLocaleDateString('en-CA');
+    const yesterday = new Date(Date.now() - 86400000)
+      .toLocaleDateString('en-CA');
+    const nextStreak =
+      studentData.lastActivity === today
+        ? studentData.streak
+        : studentData.lastActivity === yesterday
+          ? studentData.streak + 1
+          : 1;
+    const score = Math.round(session.report.averageScore * 10);
+
+    save({
+      ...studentData,
+      interviewSessions: [session, ...interviewSessions],
+      assessments: [
+        {
+          id: session.id,
+          type: 'AI Interview',
+          category: session.category,
+          score,
+          date: session.date,
+          details: `${session.role} · ${session.report.totalQuestionsAttempted} questions`,
+        },
+        ...assessments,
+      ],
+      scores: { ...studentData.scores, aiInterview: score },
+      streak: nextStreak,
+      lastActivity: today,
+      practiceMinutes: studentData.practiceMinutes + 20,
     });
   };
 
@@ -255,6 +297,8 @@ export function DataProvider({
         initialScores: { ...emptyScores },
         assessments,
         addAssessment,
+        interviewSessions,
+        completeInterviewSession,
         recoveryPlan,
         toggleRecoveryDay,
         recoveryPlanGenerated,

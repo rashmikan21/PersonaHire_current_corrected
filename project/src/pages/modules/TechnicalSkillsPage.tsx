@@ -5,7 +5,7 @@ import { useData } from '@/context/DataContext';
 
 export function TechnicalSkillsPage() {
   const { setScores, scores } = useData();
-  const updateScore = (key: 'technical', value: number) => {
+  const updateScore = (key: 'aptitude' | 'coreCS' | 'technical' | 'professional', value: number) => {
     setScores({ ...scores, [key]: Math.round((scores[key] + value) / 2) });
   };
 
