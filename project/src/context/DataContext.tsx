@@ -1,7 +1,10 @@
+
 import {
   createContext,
   useContext,
   useState,
+  useEffect,
+  useCallback,
   type ReactNode,
 } from 'react';
 
@@ -46,129 +49,199 @@ const emptyScores: ScoreBreakdown = {
   aiInterview: 0,
 };
 
+interface SavedStudentData {
+  profile: StudentProfile | null;
+  scores: ScoreBreakdown;
+  assessments: AssessmentRecord[];
+  recoveryPlan: RecoveryDay[];
+  recoveryPlanGenerated: boolean;
+  streak: number;
+  practiceMinutes: number;
+  problemsSolved: number;
+  lastActivity: string | null;
+}
+
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-function readStoredNumber(key: string): number {
-  try {
-    const value = localStorage.getItem(key);
-    if (value === null) return 0;
+function emptyStudentData(): SavedStudentData {
+  return {
+    profile: null,
+    scores: { ...emptyScores },
+    assessments: [],
+    recoveryPlan: defaultRecoveryPlan.map(day => ({
+      ...day,
+      completed: false,
+    })),
+    recoveryPlanGenerated: false,
+    streak: 0,
+    practiceMinutes: 0,
+    problemsSolved: 0,
+    lastActivity: null,
+  };
+}
 
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+function storageKey(email: string) {
+  return `personahire_student_${email.trim().toLowerCase()}`;
+}
+
+function loadStudentData(email: string): SavedStudentData {
+  const fresh = emptyStudentData();
+
+  try {
+    const raw = localStorage.getItem(storageKey(email));
+    if (!raw) return fresh;
+
+    const saved = JSON.parse(raw);
+
+    return {
+      ...fresh,
+      ...saved,
+      scores: { ...emptyScores, ...(saved.scores ?? {}) },
+      assessments: Array.isArray(saved.assessments)
+        ? saved.assessments
+        : [],
+      recoveryPlan: Array.isArray(saved.recoveryPlan)
+        ? saved.recoveryPlan
+        : fresh.recoveryPlan,
+      streak: Number(saved.streak) || 0,
+      practiceMinutes: Number(saved.practiceMinutes) || 0,
+      problemsSolved: Number(saved.problemsSolved) || 0,
+    };
   } catch {
-    return 0;
+    return fresh;
   }
 }
 
-export function DataProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfileState] = useState<StudentProfile | null>(null);
-
-  const [scores, setScores] = useState<ScoreBreakdown>({
-    ...emptyScores,
+export function DataProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  // AuthContext should provide the current user's email via this key.
+  const [email, setEmail] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('personahire_current_email');
+    } catch {
+      return null;
+    }
   });
 
-  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
+  const [studentData, setStudentData] =
+    useState<SavedStudentData>(() =>
+      email ? loadStudentData(email) : emptyStudentData()
+    );
 
-  const [recoveryPlan, setRecoveryPlan] = useState<RecoveryDay[]>(
-    () => defaultRecoveryPlan.map((day) => ({ ...day, completed: false }))
-  );
-
-  const [recoveryPlanGenerated, setRecoveryPlanGenerated] = useState(false);
-
-  const [streak, setStreak] = useState(() =>
-    readStoredNumber('personahire_v2_streak')
-  );
-
-  const [practiceMinutes, setPracticeMinutes] = useState(() =>
-    readStoredNumber('personahire_v2_practice_minutes')
-  );
-
-  const [problemsSolved, setProblemsSolved] = useState(() =>
-    readStoredNumber('personahire_v2_problems_solved')
-  );
-
-  const recordActivity = (
-    kind: 'practice' | 'coding' = 'practice',
-    minutes = 10
-  ) => {
-    const safeMinutes = Number.isFinite(minutes)
-      ? Math.max(0, minutes)
-      : 0;
-
-    const today = new Date().toLocaleDateString('en-CA');
-    const yesterday = new Date(Date.now() - 86400000)
-      .toLocaleDateString('en-CA');
-
-    let nextStreak = streak;
-
-    try {
-      const lastActivity = localStorage.getItem(
-        'personahire_v2_last_activity'
+  useEffect(() => {
+    const syncUser = () => {
+      const nextEmail = localStorage.getItem(
+        'personahire_current_email'
       );
 
-      if (lastActivity !== today) {
-        nextStreak =
-          lastActivity === yesterday ? streak + 1 : 1;
-
-        setStreak(nextStreak);
-        localStorage.setItem(
-          'personahire_v2_streak',
-          String(nextStreak)
-        );
-
-        localStorage.setItem(
-          'personahire_v2_last_activity',
-          today
+      if ((nextEmail || null) !== email) {
+        setEmail(nextEmail);
+        setStudentData(
+          nextEmail ? loadStudentData(nextEmail) : emptyStudentData()
         );
       }
+    };
 
-      const nextMinutes = practiceMinutes + safeMinutes;
+    window.addEventListener('storage', syncUser);
+    window.addEventListener('personahire-auth-changed', syncUser);
 
-      setPracticeMinutes(nextMinutes);
-      localStorage.setItem(
-        'personahire_v2_practice_minutes',
-        String(nextMinutes)
-      );
+    return () => {
+      window.removeEventListener('storage', syncUser);
+      window.removeEventListener('personahire-auth-changed', syncUser);
+    };
+  }, [email]);
 
-      if (kind === 'coding') {
-        const nextProblems = problemsSolved + 1;
+  const save = useCallback((next: SavedStudentData) => {
+    setStudentData(next);
 
-        setProblemsSolved(nextProblems);
-        localStorage.setItem(
-          'personahire_v2_problems_solved',
-          String(nextProblems)
-        );
+    if (email) {
+      try {
+        localStorage.setItem(storageKey(email), JSON.stringify(next));
+      } catch (error) {
+        console.error('Could not save PersonaHire progress:', error);
       }
-    } catch (error) {
-      console.error('Could not save activity:', error);
     }
-  };
+  }, [email]);
+
+  const profile = studentData.profile;
+  const scores = studentData.scores;
+  const assessments = studentData.assessments;
+  const recoveryPlan = studentData.recoveryPlan;
+  const recoveryPlanGenerated = studentData.recoveryPlanGenerated;
+  const streak = studentData.streak;
+  const practiceMinutes = studentData.practiceMinutes;
+  const problemsSolved = studentData.problemsSolved;
 
   const setProfile = (p: StudentProfile) => {
-    setProfileState(p);
+    save({ ...studentData, profile: p });
   };
 
   const updateProfileField: DataContextType['updateProfileField'] = (
     key,
     value
   ) => {
-    setProfileState((previous) =>
-      previous ? { ...previous, [key]: value } : previous
-    );
+    if (!profile) return;
+    save({
+      ...studentData,
+      profile: { ...profile, [key]: value },
+    });
+  };
+
+  const setScores = (s: ScoreBreakdown) => {
+    save({ ...studentData, scores: s });
   };
 
   const addAssessment = (assessment: AssessmentRecord) => {
-    setAssessments((previous) => [assessment, ...previous]);
+    save({
+      ...studentData,
+      assessments: [assessment, ...assessments],
+    });
   };
 
   const toggleRecoveryDay = (day: number) => {
-    setRecoveryPlan((previous) =>
-      previous.map((item) =>
+    save({
+      ...studentData,
+      recoveryPlan: recoveryPlan.map(item =>
         item.day === day
           ? { ...item, completed: !item.completed }
           : item
-      )
-    );
+      ),
+    });
+  };
+
+  const setRecoveryPlanGenerated = (value: boolean) => {
+    save({ ...studentData, recoveryPlanGenerated: value });
+  };
+
+  const recordActivity = (
+    kind: 'practice' | 'coding' = 'practice',
+    minutes = 10
+  ) => {
+    const today = new Date().toLocaleDateString('en-CA');
+    const yesterday = new Date(Date.now() - 86400000)
+      .toLocaleDateString('en-CA');
+
+    const lastActivity = studentData.lastActivity;
+    const safeMinutes = Math.max(0, Number(minutes) || 0);
+
+    const nextStreak =
+      lastActivity === today
+        ? streak
+        : lastActivity === yesterday
+          ? streak + 1
+          : 1;
+
+    save({
+      ...studentData,
+      streak: nextStreak,
+      lastActivity: today,
+      practiceMinutes: practiceMinutes + safeMinutes,
+      problemsSolved:
+        problemsSolved + (kind === 'coding' ? 1 : 0),
+    });
   };
 
   return (

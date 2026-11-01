@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+
+import {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { User } from '@/types';
 
 interface AuthContextType {
@@ -10,18 +16,59 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const CURRENT_EMAIL_KEY = 'personahire_current_email';
+
+function notifyAuthChanged() {
+  window.dispatchEvent(new Event('personahire-auth-changed'));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const email = localStorage.getItem(CURRENT_EMAIL_KEY);
+      const savedName = email
+        ? localStorage.getItem(`personahire_name_${email.toLowerCase()}`)
+        : null;
+
+      if (!email) return null;
+
+      return {
+        id: email.trim().toLowerCase(),
+        email,
+        name: savedName || email.split('@')[0],
+      };
+    } catch {
+      return null;
+    }
+  });
 
   const login = (email: string, name: string) => {
-    setUser({ id: crypto.randomUUID(), email, name });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    localStorage.setItem(CURRENT_EMAIL_KEY, normalizedEmail);
+    localStorage.setItem(
+      `personahire_name_${normalizedEmail}`,
+      name.trim() || normalizedEmail.split('@')[0]
+    );
+
+    setUser({
+      id: normalizedEmail,
+      email: normalizedEmail,
+      name: name.trim() || normalizedEmail.split('@')[0],
+    });
+
+    notifyAuthChanged();
   };
 
   const register = (name: string, email: string) => {
-    setUser({ id: crypto.randomUUID(), email, name });
+    login(email, name);
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    localStorage.removeItem(CURRENT_EMAIL_KEY);
+    setUser(null);
+    notifyAuthChanged();
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, register, logout }}>
@@ -32,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+
   return ctx;
 }
+

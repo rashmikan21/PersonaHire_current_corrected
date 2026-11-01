@@ -1,11 +1,17 @@
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+import sqlite3
 import requests
 import time
+import re
+import os
 
 app = Flask(__name__)
 CORS(app)
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "personahire.db")
 
 JUDGE0_URL = "https://extra-ce.judge0.com/submissions"
 
@@ -17,6 +23,28 @@ LANGUAGE_IDS = {
 }
 
 
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+
+init_db()
+
+
 @app.route("/", methods=["GET"])
 def home():
     return "PersonaHire backend is running!"
@@ -26,7 +54,86 @@ def home():
 def health():
     return jsonify({
         "status": "ok",
-        "service": "PersonaHire Code Judge"
+        "service": "PersonaHire Backend"
+    })
+
+
+@app.route("/api/auth/register", methods=["POST"])
+def register():
+    data = request.get_json(silent=True) or {}
+
+    name = str(data.get("name", "")).strip()
+    email = str(data.get("email", "")).strip().lower()
+    password = data.get("password", "")
+
+    if not name or not email or not isinstance(password, str):
+        return jsonify({"message": "Name, email, and password are required."}), 400
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return jsonify({"message": "Enter a valid email address."}), 400
+
+    if len(password) < 8:
+        return jsonify({
+            "message": "Password must contain at least 8 characters."
+        }), 400
+
+    password_hash = generate_password_hash(password)
+
+    try:
+        with get_db() as conn:
+            cursor = conn.execute(
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                (name, email, password_hash)
+            )
+            user_id = cursor.lastrowid
+
+        return jsonify({
+            "message": "Account created successfully.",
+            "user": {
+                "id": str(user_id),
+                "name": name,
+                "email": email
+            }
+        }), 201
+
+    except sqlite3.IntegrityError:
+        return jsonify({
+            "message": "An account with this email already exists. Please sign in."
+        }), 409
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+
+    email = str(data.get("email", "")).strip().lower()
+    password = data.get("password", "")
+
+    if not email or not isinstance(password, str) or not password:
+        return jsonify({
+            "message": "Email and password are required."
+        }), 400
+
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT id, name, email, password_hash FROM users WHERE email = ?",
+            (email,)
+        ).fetchone()
+
+    if user is None or not check_password_hash(
+        user["password_hash"], password
+    ):
+        return jsonify({
+            "message": "Incorrect email or password."
+        }), 401
+
+    return jsonify({
+        "message": "Login successful.",
+        "user": {
+            "id": str(user["id"]),
+            "name": user["name"],
+            "email": user["email"]
+        }
     })
 
 
@@ -114,14 +221,13 @@ def submit_code():
             or ""
         )
 
+        message = error or status
         if status == "Accepted":
             status = "Executed"
             message = (
                 "Code executed successfully. Problem-specific test cases "
                 "are not configured, so correctness has not been verified."
             )
-        else:
-            message = error or status
 
         return jsonify({
             "status": status,
